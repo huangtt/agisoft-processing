@@ -10,6 +10,7 @@ mesh_dict = {}
 # Maps the texture path to respective chunk
 texture_dict = {}
 
+# Select the folder that contains two other folders -- 1. photos with no projection and 2. photos with projection
 def selectFolder():
 	# Select folder with photos
 	print ("Selecting folder")
@@ -17,25 +18,27 @@ def selectFolder():
 	# User should select a folder containing at least a pair of folders ending with _2 (projection) and _1 (texture)
 	path_folder = PhotoScan.app.getExistingDirectory("Specify folder with input photos:")
 
+	# Get the name of each folder inside selected folder
 	subdirectories = os.listdir(path_folder)
 
 	# For each folder within the selected folder
 	for sub_path in subdirectories:
 		# Find the path of the subfolder
 		new_path = path_folder + "\\" + sub_path + "\\"
-		print("NEW PATH: " + new_path)
-		# Projection folder
+
+		# Projection folder ends with _2
 		if (sub_path.endswith('_2')):
 			print("Processing photos on " + new_path)
 			# No assigned chunk yet
 			mesh_dict[new_path] = None
-			# Processes photos
+			# Processes photos (aligns photos and builds dense cloud)
 			processPhotos(new_path)
-		# Texture folder
+
+		# Texture folder ends with _1
 		elif (sub_path.endswith('_1')):
 			print("Adding texture chunk on " + new_path)
 			texture_dict[new_path] = None
-			# Assigns chunk to this path and adds photos
+			# Assigns chunk to this path and adds photos to chunk
 			addTextureChunk(new_path)
 		
 	# Checking save filename
@@ -48,7 +51,7 @@ def selectFolder():
 	if project_path[-4:].lower() != ".psz":
 		project_path += ".psz"
 
-# Add the texture chunk and the texture photos
+# Add the texture chunk and the texture photos to the chunk
 def addTextureChunk(new_path):
 	# Add a chunk and label it with the path name
 	chunk = doc.addChunk()
@@ -59,7 +62,6 @@ def addTextureChunk(new_path):
 
 	# Add photos
 	print("Adding photos for texture chunk")
-	print("FILE PATH: " + new_path)
 
 	# Open a file
 	os.chdir(new_path)
@@ -75,7 +77,7 @@ def addTextureChunk(new_path):
 
 	PhotoScan.app.update()
 
-# Adds photos and builds dense cloud
+# Adds photos and builds dense cloud for mesh photos
 def processPhotos(new_path):
 	print("Script started")
 
@@ -89,7 +91,6 @@ def processPhotos(new_path):
 
 	# Adding photos
 	print("Adding photos")
-	print("FILE PATH: " + new_path)
 
 	# Open a file
 	os.chdir(new_path)
@@ -106,10 +107,10 @@ def processPhotos(new_path):
 	PhotoScan.app.update()
 	
 	# Align photos
-	print("Aligning photos")
 	print("Matching photos")
 	chunk.matchPhotos(accuracy=PhotoScan.MediumAccuracy, preselection=PhotoScan.GenericPreselection)
-	print("Aligning photos...")
+
+	print("Aligning cameras")
 	chunk.alignCameras()
 
 	# Build dense cloud
@@ -118,28 +119,19 @@ def processPhotos(new_path):
 
 	PhotoScan.app.update()
 
-# Build mesh (after clean up of dense cloud)
-def buildMesh():
-	# Build model
-	print("Building model")
-
-	# Each chunk will build its path's mesh
-	for key in mesh_dict:
-		mesh_dict[key].buildModel(surface=PhotoScan.Arbitrary, interpolation=PhotoScan.EnabledInterpolation)
-
-	PhotoScan.app.update()
-
-def finishUp():
-	print("Finishing up")
-	print("In finish...exporting cameras")
+# After the user has cleaned up their dense cloud (if desired)
+def createModel():
+	# Build the mesh
+	buildMesh()
+	# Export cameras to mesh folder
 	exportCameras()
-	print("In finish...exporting model")
+	# Export model to mesh folder
 	exportModel()
-	print("In finish...importing cameras")
+	# Import cameras from mesh to texture folder
 	importCameras()
-	print("In finish...importing model")
+	# Import model from mesh to texture folder
 	importModel()
-	print("In finish...building texture")
+	# Build the texture in the texture chunk
 	buildTexture()
 
 	# Save
@@ -149,27 +141,39 @@ def finishUp():
 	PhotoScan.app.update()
 	print("Script finished")
 
+# Build mesh
+def buildMesh():
+	# Build model
+	print("Building model")
+
+	# Each mesh chunk will build its path's mesh
+	for key in mesh_dict:
+		mesh_dict[key].buildModel(surface=PhotoScan.Arbitrary, interpolation=PhotoScan.EnabledInterpolation)
+
+	PhotoScan.app.update()
+
 # Exports camera to mesh folder
 def exportCameras():
 	# Export Cameras
 	print("Exporting cameras")
+
 	for key in mesh_dict:
 		camera_path = key + "cameras.xml"
-		print("Camera path is " + camera_path)
 		mesh_dict[key].exportCameras(camera_path, format='xml')
-		print("Exported cameras to " + camera_path)
+
 	PhotoScan.app.update()
 
 # Exports model to mesh folder
 def exportModel():
 	print("Exporting model")
+
 	for key in mesh_dict:
 		model_path = key + "model.obj"
 		mesh_dict[key].exportModel(model_path, format='obj')
-		print("Exported model to" + model_path)
+
 	PhotoScan.app.update()
 
-# Imports model from texture folder
+# Imports model from mesh folder to texture chunk
 def importCameras():
 	print("Importing cameras")
 
@@ -181,50 +185,48 @@ def importCameras():
 		# For every texture file
 		for texture_key in texture_dict:
 			# If matches with its mesh file
-			print("Searching through texture dict...on " + texture_key)
 			if corrTextureFile == texture_key:
 				print("Found match!")
+
 				# Import camera path (in mesh file path)
 				import_cameras_path = key + "cameras.xml"
+
 				# Texture chunk imports camera from mesh file path
 				texture_dict[texture_key].importCameras(import_cameras_path, format='xml')
 				print("Imported successfully!")
+
 	PhotoScan.app.update()
 
-# Imports model from texture folder
+# Imports model from mesh folder to texture chunk
 def importModel():
 	print("Importing model")
+
 	# For every mesh file
 	for key in mesh_dict:
 		# Find the corresponding texture file
 		corrTextureFile = key[:-2] + "1\\"
-		print("Searching for " + corrTextureFile)
 
 		# For every texture file
 		for texture_key in texture_dict:
 			# If matches with its mesh file
-			print("Searching through texture dict...on " + texture_key)
 			if corrTextureFile == texture_key:
 				print("Found match")
+
 				# Import model path (in mesh file path)
 				import_model_path = key + "model.obj"
+
 				# Texture chunk imports model from mesh file path
 				texture_dict[texture_key].importModel(import_model_path, format='obj')
 				print("Imported successfully!")
+
 	PhotoScan.app.update()
 
-# Build texture
+# Build texture in texture chunk
 def buildTexture():
 	# Build texture
 	print("Building texture")
 	for texture_key in texture_dict:
 		print("Building texture for " + texture_key)
-
-		#these don't work
-		#texture_dict[texture_key].buildTexture(blending=PhotoScan.MosaicBlending, size=4096)
-		#texture_dict[texture_key].buildTexture(mapping = "adaptive", blending = "mosaic", color_correction = False, size = 4096, count = 1)
-				#haven't tested yet		#doc.activeChunk.buildTexture(mapping="generic", blending="average", width=2048, height=2048)		#doesn't work		#texture_dict[texture_key].buildUV(mapping = mapping, count = 1)
-		#texture_dict[texture_key].buildTexture(blending = blending , color_correction = color_corr, size = atlas_size)
 
 		texture_dict[texture_key].buildUV(mapping=PhotoScan.GenericMapping)
 		texture_dict[texture_key].buildTexture(blending=PhotoScan.MosaicBlending, size=4096)
@@ -232,7 +234,7 @@ def buildTexture():
 	print("Successfully built texture!")
 	doc.save()
 
-#Print each chunk name in the respective dictionaries (mesh and texture)
+# Print each chunk name in the respective dictionaries (mesh and texture)
 def testChunks():
 	print("IN MESH:")
 	for key in mesh_dict:
@@ -241,9 +243,8 @@ def testChunks():
 	for key in texture_dict:
 		print(texture_dict[key].label)
 	
+#User will have two options
 PhotoScan.app.addMenuItem("Custom menu/Select folder", selectFolder)
-PhotoScan.app.addMenuItem("Custom menu/Test chunks", testChunks)
-PhotoScan.app.addMenuItem("Custom menu/Build mesh", buildMesh)
-PhotoScan.app.addMenuItem("Custom menu/Finish up", finishUp)
+PhotoScan.app.addMenuItem("Custom menu/Create Model", createModel)
 
 
