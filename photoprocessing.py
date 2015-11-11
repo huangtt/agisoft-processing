@@ -234,7 +234,7 @@ def buildTexture():
 	print("Successfully built texture!")
 	doc.save()
 	
-#User will have two options
+# User will have two options
 PhotoScan.app.addMenuItem("Custom menu/Select folder", selectFolder)
 PhotoScan.app.addMenuItem("Custom menu/Create Model", createModel)
 
