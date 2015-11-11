@@ -233,15 +233,6 @@ def buildTexture():
 
 	print("Successfully built texture!")
 	doc.save()
-
-# Print each chunk name in the respective dictionaries (mesh and texture)
-def testChunks():
-	print("IN MESH:")
-	for key in mesh_dict:
-		print(mesh_dict[key].label)
-	print("IN TEXTURE:")
-	for key in texture_dict:
-		print(texture_dict[key].label)
 	
 #User will have two options
 PhotoScan.app.addMenuItem("Custom menu/Select folder", selectFolder)
