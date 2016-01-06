@@ -12,4 +12,4 @@ Using Agisoft PhotoScan software, simply "Run Script" with the photoprocessing.p
 
 The software will align photos and build the dense cloud of the projection photos. After it finishes, simply clean up the model so the dense cloud only contains the points you want in your 3D model.
 
-Finally, select "Create model" in the Custom Menu. Some Python scripting magic will occur and your textured model is ready!
+Finally, select "Create model" in the Custom Menu. Textured model should be ready in about 5-10 more minutes!
